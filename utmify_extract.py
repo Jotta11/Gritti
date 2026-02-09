@@ -14,6 +14,9 @@ import logging
 import psycopg2
 from psycopg2.extras import execute_values
 
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+
 # Configurar logging
 logging.basicConfig(
     level=logging.INFO,
@@ -30,14 +33,66 @@ logger = logging.getLogger(__name__)
 DB_CONFIG = {
     "host": os.getenv("DB_HOST", "database-2.cdg6qmmuuc8e.us-east-2.rds.amazonaws.com"),
     "port": os.getenv("DB_PORT", "5432"),
-    "database": os.getenv("DB_NAME","Gritti2"),
+    "database": os.getenv("DB_NAME", "Gritti2"),
     "user": os.getenv("DB_USER", "ancher"),
     "password": os.getenv("DB_PASSWORD", "Spirorbis7-Swab7"),
 }
 
 # Utmify
-UTMIFY_TOKEN = os.getenv("UTMIFY_TOKEN", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpczJGQSI6dHJ1ZSwiaXNNb2JpbGVXaXRoT2xkVmVyc2lvbiI6ZmFsc2UsImV4cCI6MTc2ODUxNzg2NiwiaWF0IjoxNzY4NTE0MjY2LCJzdWIiOiI2NjY2OGFjYzY2NzBlNmQwYzdhMTc2OTcifQ.5QuOheCn-i_4setvrhWMuDs4QTG_uujvNXwh1vv_BuA")
-UTMIFY_DASHBOARD_ID = os.getenv("UTMIFY_DASHBOARD_ID", "66668acc6670e6d0c7a17699")
+UTMIFY_TOKEN = os.getenv(
+    "UTMIFY_TOKEN",
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpczJGQSI6dHJ1ZSwiaXNNb2JpbGVXaXRoT2xkVmVyc2lvbiI6ZmFsc2UsImV4cCI6MTc3MDY3MDczMywiaWF0IjoxNzcwNjY3MTMzLCJzdWIiOiI2NjY2OGFjYzY2NzBlNmQwYzdhMTc2OTcifQ.FNr54L1ssGNBuytohyDi6LET--CaaRECNK-cU-IWn9E"
+)
+
+# Timeout/retry configuráveis por env (recomendado por causa de múltiplos dashboards)
+UTMIFY_TIMEOUT = int(os.getenv("UTMIFY_TIMEOUT", "180"))        # antes era 60
+UTMIFY_RETRIES = int(os.getenv("UTMIFY_RETRIES", "3"))          # tentativas
+UTMIFY_BACKOFF = float(os.getenv("UTMIFY_BACKOFF", "1.0"))      # backoff base
+
+# ✅ Agora suporta múltiplos dashboards (mesmos IDs do script de ads)
+# Você pode definir por env também:
+# export UTMIFY_DASHBOARD_IDS="66668acc6670e6d0c7a17699,697179f7cfa58e5d2a21afdf,6972dc7473de5f488a3aee2b"
+DEFAULT_DASHBOARD_IDS = [
+    os.getenv("UTMIFY_DASHBOARD_ID", "66668acc6670e6d0c7a17699"),  # mantém compatibilidade
+    "697179f7cfa58e5d2a21afdf",
+    "6972dc7473de5f488a3aee2b",
+]
+UTMIFY_DASHBOARD_IDS = [
+    d.strip()
+    for d in os.getenv("UTMIFY_DASHBOARD_IDS", ",".join(DEFAULT_DASHBOARD_IDS)).split(",")
+    if d.strip()
+]
+
+logger.info(f"🧩 Dashboards ativos: {UTMIFY_DASHBOARD_IDS}")
+logger.info(f"⏱️ Timeout: {UTMIFY_TIMEOUT}s | Retries: {UTMIFY_RETRIES} | Backoff: {UTMIFY_BACKOFF}")
+
+
+# =====================================================
+# HTTP SESSION COM RETRY
+# =====================================================
+
+def build_session() -> requests.Session:
+    session = requests.Session()
+
+    retry = Retry(
+        total=UTMIFY_RETRIES,
+        connect=UTMIFY_RETRIES,
+        read=UTMIFY_RETRIES,
+        status=UTMIFY_RETRIES,
+        backoff_factor=UTMIFY_BACKOFF,
+        status_forcelist=(429, 500, 502, 503, 504),
+        allowed_methods=frozenset(["POST"]),
+        raise_on_status=False,
+        respect_retry_after_header=True,
+    )
+
+    adapter = HTTPAdapter(max_retries=retry, pool_connections=10, pool_maxsize=10)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    return session
+
+
+SESSION = build_session()
 
 
 # =====================================================
@@ -45,8 +100,8 @@ UTMIFY_DASHBOARD_ID = os.getenv("UTMIFY_DASHBOARD_ID", "66668acc6670e6d0c7a17699
 # =====================================================
 
 def fetch_campaigns(target_date: date) -> Dict[str, Any]:
-    """Busca campanhas da API do Utmify para uma data específica"""
-    
+    """Busca campanhas da API do Utmify para múltiplos dashboards e consolida os resultados"""
+
     headers = {
         "accept": "application/json",
         "authorization": f"Bearer {UTMIFY_TOKEN}",
@@ -54,37 +109,76 @@ def fetch_campaigns(target_date: date) -> Dict[str, Any]:
         "origin": "https://app.utmify.com.br",
         "referer": "https://app.utmify.com.br/",
     }
-    
+
     # Ajusta para timezone UTC-3
     date_from = target_date.strftime("%Y-%m-%dT03:00:00.000Z")
     date_to = (target_date + timedelta(days=1)).strftime("%Y-%m-%dT02:59:59.999Z")
-    
-    payload = {
-        "level": "campaign",
-        "dateRange": {"from": date_from, "to": date_to},
-        "nameContains": None,
-        "productNames": None,
-        "orderBy": "greater_profit",
-        "adObjectStatuses": None,
-        "accountStatuses": None,
-        "metaAdAccountIds": None,
-        "dashboardId": UTMIFY_DASHBOARD_ID
-    }
-    
-    logger.info(f"🔄 Buscando dados de {target_date.strftime('%d/%m/%Y')}...")
-    
-    response = requests.post(
-        "https://server.utmify.com.br/orders/search-objects",
-        headers=headers,
-        json=payload,
-        timeout=60
+
+    all_results = []
+    seen_campaign_ids = set()
+
+    logger.info(
+        f"🔄 Buscando campaigns de {target_date.strftime('%d/%m/%Y')} em {len(UTMIFY_DASHBOARD_IDS)} dashboards..."
     )
-    
-    response.raise_for_status()
-    data = response.json()
-    
-    logger.info(f"✅ {len(data.get('results', []))} campanhas encontradas")
-    return data
+
+    for dashboard_id in UTMIFY_DASHBOARD_IDS:
+        payload = {
+            "level": "campaign",
+            "dateRange": {"from": date_from, "to": date_to},
+            "nameContains": None,
+            "productNames": None,
+            "orderBy": "greater_profit",
+            "adObjectStatuses": None,
+            "accountStatuses": None,
+            "metaAdAccountIds": None,
+            "dashboardId": dashboard_id
+        }
+
+        logger.info(f"➡️ Dashboard {dashboard_id}: buscando...")
+
+        try:
+            response = SESSION.post(
+                "https://server.utmify.com.br/orders/search-objects",
+                headers=headers,
+                json=payload,
+                timeout=UTMIFY_TIMEOUT
+            )
+
+            if not (200 <= response.status_code < 300):
+                snippet = ""
+                try:
+                    snippet = str(response.text)[:300]
+                except Exception:
+                    pass
+                logger.warning(f"⚠️ Dashboard {dashboard_id}: HTTP {response.status_code} | {snippet}")
+                continue
+
+            data = response.json()
+            results = data.get("results", []) or []
+            logger.info(f"✅ Dashboard {dashboard_id}: {len(results)} campanhas encontradas")
+
+            # Dedup por campaignId (id)
+            for c in results:
+                cid = c.get("id")
+                if not cid:
+                    continue
+                if cid in seen_campaign_ids:
+                    continue
+                seen_campaign_ids.add(cid)
+                all_results.append(c)
+
+        except requests.exceptions.ReadTimeout:
+            logger.error(f"⏳ Timeout no dashboard {dashboard_id} (>{UTMIFY_TIMEOUT}s). Pulando para o próximo...")
+            continue
+        except requests.exceptions.RequestException as e:
+            logger.error(f"🌐 Erro de rede no dashboard {dashboard_id}: {e}. Pulando para o próximo...")
+            continue
+        except Exception as e:
+            logger.error(f"❌ Erro inesperado no dashboard {dashboard_id}: {e}. Pulando para o próximo...")
+            continue
+
+    logger.info(f"📦 Consolidado: {len(all_results)} campanhas únicas (dedup por id)")
+    return {"results": all_results}
 
 
 def cents_to_decimal(value):
@@ -98,7 +192,7 @@ def parse_datetime(value):
         return None
     try:
         return datetime.fromisoformat(value.replace("-0300", "-03:00").replace("-0200", "-02:00"))
-    except:
+    except Exception:
         return None
 
 
@@ -165,16 +259,16 @@ def prepare_campaign_values(campaigns: list, report_date: date) -> list:
 
 def save_to_history(campaigns: list, report_date: date) -> int:
     """Salva campanhas na tabela de histórico (ontem e anteriores)"""
-    
+
     if not campaigns:
         logger.warning("⚠️ Nenhuma campanha para salvar")
         return 0
-    
+
     conn = psycopg2.connect(**DB_CONFIG)
     cursor = conn.cursor()
-    
+
     values = prepare_campaign_values(campaigns, report_date)
-    
+
     query = """
         INSERT INTO campaigns_history (
             campaign_id, report_date, name, level, status, effective_status,
@@ -202,34 +296,34 @@ def save_to_history(campaigns: list, report_date: date) -> int:
             roi = EXCLUDED.roi,
             approved_orders = EXCLUDED.approved_orders
     """
-    
+
     execute_values(cursor, query, values)
     count = cursor.rowcount
-    
+
     conn.commit()
     cursor.close()
     conn.close()
-    
+
     logger.info(f"✅ {count} campanhas salvas em campaigns_history")
     return count
 
 
 def save_to_today(campaigns: list, report_date: date) -> int:
     """Salva campanhas na tabela de hoje (limpa e insere)"""
-    
+
     if not campaigns:
         logger.warning("⚠️ Nenhuma campanha para salvar")
         return 0
-    
+
     conn = psycopg2.connect(**DB_CONFIG)
     cursor = conn.cursor()
-    
+
     # Limpa tabela de hoje antes de inserir
     cursor.execute("TRUNCATE TABLE campaigns_today")
     logger.info("🗑️ Tabela campaigns_today limpa")
-    
+
     values = prepare_campaign_values(campaigns, report_date)
-    
+
     query = """
         INSERT INTO campaigns_today (
             campaign_id, report_date, name, level, status, effective_status,
@@ -245,43 +339,39 @@ def save_to_today(campaigns: list, report_date: date) -> int:
             conversations, cost_per_conversation, created_time
         ) VALUES %s
     """
-    
+
     execute_values(cursor, query, values)
     count = cursor.rowcount
-    
+
     conn.commit()
     cursor.close()
     conn.close()
-    
+
     logger.info(f"✅ {count} campanhas salvas em campaigns_today")
     return count
 
 
 def extract_today():
     """Extrai dados de HOJE e salva em campaigns_today"""
-    
+
     target_date = date.today()
-    
+
     print("=" * 50)
     print(f"📊 UTMIFY EXTRACTOR - HOJE")
     print(f"📅 Data: {target_date.strftime('%d/%m/%Y')}")
     print("=" * 50)
-    
+
     try:
-        # Busca dados da API
         data = fetch_campaigns(target_date)
         campaigns = data.get("results", [])
-        
+
         if not campaigns:
             print("\n⚠️ Nenhuma campanha encontrada para esta data")
             return
-        
-        # Salva na tabela de hoje (TRUNCATE + INSERT)
-        count = save_to_today(campaigns, target_date)
-        
-        # Resumo
+
+        save_to_today(campaigns, target_date)
         print_summary(campaigns)
-        
+
     except requests.exceptions.HTTPError as e:
         handle_http_error(e)
     except Exception as e:
@@ -291,29 +381,25 @@ def extract_today():
 
 def extract_yesterday():
     """Extrai dados de ONTEM e salva em campaigns_history"""
-    
+
     target_date = date.today() - timedelta(days=1)
-    
+
     print("=" * 50)
     print(f"📊 UTMIFY EXTRACTOR - ONTEM")
     print(f"📅 Data: {target_date.strftime('%d/%m/%Y')}")
     print("=" * 50)
-    
+
     try:
-        # Busca dados da API
         data = fetch_campaigns(target_date)
         campaigns = data.get("results", [])
-        
+
         if not campaigns:
             print("\n⚠️ Nenhuma campanha encontrada para esta data")
             return
-        
-        # Salva na tabela de histórico (UPSERT)
-        count = save_to_history(campaigns, target_date)
-        
-        # Resumo
+
+        save_to_history(campaigns, target_date)
         print_summary(campaigns)
-        
+
     except requests.exceptions.HTTPError as e:
         handle_http_error(e)
     except Exception as e:
@@ -327,7 +413,7 @@ def print_summary(campaigns: list):
     total_revenue = sum(c.get("revenue", 0) / 100 for c in campaigns)
     total_profit = sum(c.get("profit", 0) / 100 for c in campaigns)
     total_orders = sum(c.get("approvedOrdersCount", 0) for c in campaigns)
-    
+
     print("\n" + "=" * 50)
     print("📈 RESUMO")
     print("=" * 50)
@@ -357,7 +443,7 @@ def handle_http_error(e):
 
 if __name__ == "__main__":
     import sys
-    
+
     if len(sys.argv) < 2:
         print("Uso: python utmify_extract.py [hoje|ontem]")
         print("")
@@ -365,9 +451,9 @@ if __name__ == "__main__":
         print("  hoje   - Extrai dados do dia atual (salva em campaigns_today)")
         print("  ontem  - Extrai dados do dia anterior (salva em campaigns_history)")
         sys.exit(1)
-    
+
     comando = sys.argv[1].lower()
-    
+
     if comando == "hoje":
         extract_today()
     elif comando == "ontem":
