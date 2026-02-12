@@ -1,0 +1,16 @@
+# Requisitos para o projeto de extração
+
+# Banco de dados
+psycopg2-binary==2.9.9
+
+# HTTP requests
+requests==2.31.0
+
+# Automação de navegador
+playwright==1.41.0
+
+# Agendamento
+schedule==1.2.1
+
+# Variáveis de ambiente (opcional)
+python-dotenv==1.0.0

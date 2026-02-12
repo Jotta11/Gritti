@@ -41,7 +41,7 @@ DB_CONFIG = {
 # Utmify
 UTMIFY_TOKEN = os.getenv(
     "UTMIFY_TOKEN",
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpczJGQSI6dHJ1ZSwiaXNNb2JpbGVXaXRoT2xkVmVyc2lvbiI6ZmFsc2UsImV4cCI6MTc3MDY3MDczMywiaWF0IjoxNzcwNjY3MTMzLCJzdWIiOiI2NjY2OGFjYzY2NzBlNmQwYzdhMTc2OTcifQ.FNr54L1ssGNBuytohyDi6LET--CaaRECNK-cU-IWn9E"
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpczJGQSI6dHJ1ZSwiaXNNb2JpbGVXaXRoT2xkVmVyc2lvbiI6ZmFsc2UsImV4cCI6MTc3MDkyMTEzMywiaWF0IjoxNzcwOTE3NTMzLCJzdWIiOiI2NjY2OGFjYzY2NzBlNmQwYzdhMTc2OTcifQ.y-aoJRnMIxGNPvWR7-e4jLUdFUUkHtO91oFmBB79MF4"
 )
 
 # Timeout/retry configuráveis por env (recomendado por causa de múltiplos dashboards)
