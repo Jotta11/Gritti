@@ -26,34 +26,51 @@ logger = logging.getLogger(__name__)
 
 
 # =====================================================
-# CONFIGURAÇÕES - EDITE AQUI
+# CARREGAR .ENV
 # =====================================================
 
-# Banco de dados PostgreSQL
+def load_env():
+    """Carrega variáveis do arquivo .env"""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    env_file = os.path.join(script_dir, ".env")
+    
+    if os.path.exists(env_file):
+        with open(env_file, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    key, value = key.strip(), value.strip()
+                    if value:
+                        os.environ[key] = value
+
+load_env()
+
+
+# =====================================================
+# CONFIGURAÇÕES
+# =====================================================
+
+# Banco de dados PostgreSQL (lê do .env)
 DB_CONFIG = {
-    "host": os.getenv("DB_HOST", "database-2.cdg6qmmuuc8e.us-east-2.rds.amazonaws.com"),
-    "port": os.getenv("DB_PORT", "5432"),
-    "database": os.getenv("DB_NAME", "Gritti2"),
-    "user": os.getenv("DB_USER", "ancher"),
-    "password": os.getenv("DB_PASSWORD", "Spirorbis7-Swab7"),
+    "host": os.getenv("DB_HOST"),
+    "port": os.getenv("DB_PORT"),
+    "database": os.getenv("DB_NAME"),
+    "user": os.getenv("DB_USER"),
+    "password": os.getenv("DB_PASSWORD"),
 }
 
 # Utmify
-UTMIFY_TOKEN = os.getenv(
-    "UTMIFY_TOKEN",
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpczJGQSI6dHJ1ZSwiaXNNb2JpbGVXaXRoT2xkVmVyc2lvbiI6ZmFsc2UsImV4cCI6MTc3MDkyMTEzMywiaWF0IjoxNzcwOTE3NTMzLCJzdWIiOiI2NjY2OGFjYzY2NzBlNmQwYzdhMTc2OTcifQ.y-aoJRnMIxGNPvWR7-e4jLUdFUUkHtO91oFmBB79MF4"
-)
+UTMIFY_TOKEN = os.getenv("UTMIFY_TOKEN", "")
 
-# Timeout/retry configuráveis por env (recomendado por causa de múltiplos dashboards)
-UTMIFY_TIMEOUT = int(os.getenv("UTMIFY_TIMEOUT", "180"))        # antes era 60
-UTMIFY_RETRIES = int(os.getenv("UTMIFY_RETRIES", "3"))          # tentativas
-UTMIFY_BACKOFF = float(os.getenv("UTMIFY_BACKOFF", "1.0"))      # backoff base
+# Timeout/retry configuráveis por env
+UTMIFY_TIMEOUT = int(os.getenv("UTMIFY_TIMEOUT", "180"))
+UTMIFY_RETRIES = int(os.getenv("UTMIFY_RETRIES", "3"))
+UTMIFY_BACKOFF = float(os.getenv("UTMIFY_BACKOFF", "1.0"))
 
-# ✅ Agora suporta múltiplos dashboards (mesmos IDs do script de ads)
-# Você pode definir por env também:
-# export UTMIFY_DASHBOARD_IDS="66668acc6670e6d0c7a17699,697179f7cfa58e5d2a21afdf,6972dc7473de5f488a3aee2b"
+# Múltiplos dashboards
 DEFAULT_DASHBOARD_IDS = [
-    os.getenv("UTMIFY_DASHBOARD_ID", "66668acc6670e6d0c7a17699"),  # mantém compatibilidade
+    os.getenv("UTMIFY_DASHBOARD_ID", "66668acc6670e6d0c7a17699"),
     "697179f7cfa58e5d2a21afdf",
     "6972dc7473de5f488a3aee2b",
 ]
@@ -65,6 +82,7 @@ UTMIFY_DASHBOARD_IDS = [
 
 logger.info(f"🧩 Dashboards ativos: {UTMIFY_DASHBOARD_IDS}")
 logger.info(f"⏱️ Timeout: {UTMIFY_TIMEOUT}s | Retries: {UTMIFY_RETRIES} | Backoff: {UTMIFY_BACKOFF}")
+logger.info(f"🔑 Token: {'✅ Definido' if UTMIFY_TOKEN else '❌ Não definido'}")
 
 
 # =====================================================
@@ -101,6 +119,10 @@ SESSION = build_session()
 
 def fetch_campaigns(target_date: date) -> Dict[str, Any]:
     """Busca campanhas da API do Utmify para múltiplos dashboards e consolida os resultados"""
+
+    if not UTMIFY_TOKEN:
+        logger.error("❌ UTMIFY_TOKEN não definido!")
+        return {"results": []}
 
     headers = {
         "accept": "application/json",
@@ -359,7 +381,12 @@ def extract_today():
     print("=" * 50)
     print(f"📊 UTMIFY EXTRACTOR - HOJE")
     print(f"📅 Data: {target_date.strftime('%d/%m/%Y')}")
+    print(f"🔑 Token: {'✅ Definido' if UTMIFY_TOKEN else '❌ Não definido'}")
     print("=" * 50)
+
+    if not UTMIFY_TOKEN:
+        print("\n❌ Execute: python3 auto_extract.py utmify")
+        return
 
     try:
         data = fetch_campaigns(target_date)
@@ -387,7 +414,12 @@ def extract_yesterday():
     print("=" * 50)
     print(f"📊 UTMIFY EXTRACTOR - ONTEM")
     print(f"📅 Data: {target_date.strftime('%d/%m/%Y')}")
+    print(f"🔑 Token: {'✅ Definido' if UTMIFY_TOKEN else '❌ Não definido'}")
     print("=" * 50)
+
+    if not UTMIFY_TOKEN:
+        print("\n❌ Execute: python3 auto_extract.py utmify")
+        return
 
     try:
         data = fetch_campaigns(target_date)
@@ -432,7 +464,7 @@ def handle_http_error(e):
     """Trata erros HTTP"""
     if e.response.status_code == 401:
         print("\n❌ ERRO: Token expirado ou inválido!")
-        print("   Atualize o UTMIFY_TOKEN no script ou .env")
+        print("   Execute: python3 auto_extract.py utmify")
     else:
         print(f"\n❌ Erro HTTP: {e}")
 

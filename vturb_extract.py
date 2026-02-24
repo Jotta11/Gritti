@@ -22,18 +22,40 @@ logger = logging.getLogger(__name__)
 
 
 # =====================================================
+# CARREGAR .ENV
+# =====================================================
+
+def load_env():
+    """Carrega variáveis do arquivo .env"""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    env_file = os.path.join(script_dir, ".env")
+    
+    if os.path.exists(env_file):
+        with open(env_file, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    key, value = key.strip(), value.strip()
+                    if value:
+                        os.environ[key] = value
+
+load_env()
+
+
+# =====================================================
 # CONFIGURAÇÕES
 # =====================================================
 
 DB_CONFIG = {
-    "host": os.getenv("DB_HOST", "database-2.cdg6qmmuuc8e.us-east-2.rds.amazonaws.com"),
-    "port": os.getenv("DB_PORT", "5432"),
-    "database": os.getenv("DB_NAME", "Gritti2"),
-    "user": os.getenv("DB_USER", "ancher"),
-    "password": os.getenv("DB_PASSWORD", "Spirorbis7-Swab7"),
+    "host": os.getenv("DB_HOST"),
+    "port": os.getenv("DB_PORT"),
+    "database": os.getenv("DB_NAME"),
+    "user": os.getenv("DB_USER"),
+    "password": os.getenv("DB_PASSWORD"),
 }
 
-VTURB_TOKEN = os.getenv("VTURB_TOKEN", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImU2ZjJkNDcyMCJ9.eyJhdWQiOiI4MmFhZDE0MS03MTdlLTRlNWEtODg2ZS04MDM0OGI0MTQwNmYiLCJleHAiOjE3NzA5NjA2NjksImlhdCI6MTc3MDkxNzQ2OSwiaXNzIjoiaHR0cHM6Ly9hdXRoLnZ0dXJiLmNvbS5iciIsInN1YiI6ImZhMDBhYzM4LTU1N2MtNDA3MS05MmYyLTE2ZGYzNWU5YjY3MyIsImp0aSI6IjA4ODc3NTVmLWQ5ZjktNDU2Ny05MjQ1LWNhODYzNWFkYjE1NyIsImF1dGhlbnRpY2F0aW9uVHlwZSI6IlJFRlJFU0hfVE9LRU4iLCJlbWFpbCI6ImFuYWNsYXJhYmljaHVldGVAZ21haWwuY29tIiwiZW1haWxfdmVyaWZpZWQiOnRydWUsImFwcGxpY2F0aW9uSWQiOiI4MmFhZDE0MS03MTdlLTRlNWEtODg2ZS04MDM0OGI0MTQwNmYiLCJ0aWQiOiI5ZmI4YTkxYy0wMzA0LWJiYjYtODg2NS0yODU2OTcwY2VkY2YiLCJyb2xlcyI6WyJwcm9kdWN0cyJdLCJhdXRoX3RpbWUiOjE3NzA2MzYwMzEsInNpZCI6ImU2NWYxMGQ0LTJkZmMtNGQ1Mi04Njg2LTFlYTRlNDE1OGI5YSIsImNpZCI6ImIwZTQ5MzliLWNjNzctNGUyYS1iNDRlLWNkZDcyNTBjZjcyOSIsInBlcm1pc3Npb24iOnsibmFtZSI6IkFETUlOIiwibGV2ZWwiOjExMjU4OTk5MDY4NDI2MjN9LCJmb2xkZXJfcGVybWlzc2lvbnMiOnt9LCJ1c2VyX2RhdGEiOnsibG9jYWxlIjpudWxsLCJ0aW1lem9uZSI6bnVsbH0sImNvbXBhbnlfZGF0YSI6eyJsb2NhbGUiOiJwdC1CUiIsImJyIjpbImFudGlfZGwiLCJjYWxsX2FjdGlvbnNfdjMiLCJmYWtlX2RsIiwiZmlsdGVyX3J1bGVzX2xhbWJkYSIsInBsYXllcl92NCIsInBsYXllcl92NF8yIiwicGxheWVyX3Y0X2NhbmFyeSIsInNob3VsZF9za2lwX2pvYl91cGRhdGVfcGxheWVyX2V2ZW50cyIsInRyYWZmaWNfZmlsdGVyIl0sInRpbWV6b25lIjpudWxsLCJoYXNfdmFsaWRfc3Vic2NyaXB0aW9uIjp0cnVlfSwicmVmcmVzaF90b2tlbiI6IlNSYURLUjBERk56VXFjY3VfYk9ZSXJTTW5tWG5JbkNDTzdsMFM5UURpYjdaLVhyTWlNMi11dyJ9.srGBvtwaaHWKF4I7p6fT9CIYYxJ-7i9LSYjXh4bquuM")
+VTURB_TOKEN = os.getenv("VTURB_TOKEN", "")
 
 PLAYER_IDS = [
     '693a3e45e891e679e7727765',
@@ -74,6 +96,8 @@ PLAYER_IDS = [
 ]
 
 TIMEZONE = 'America/Sao_Paulo'
+
+logger.info(f"🔑 Token: {'✅ Definido' if VTURB_TOKEN else '❌ Não definido'}")
 
 
 # =====================================================
@@ -127,6 +151,10 @@ def fetch_player_stats(player_id: str, target_date: date) -> Optional[Dict]:
     """Busca estatísticas do player na API VTurb"""
     
     token = VTURB_TOKEN.strip()
+    if not token:
+        logger.error("❌ VTURB_TOKEN não definido!")
+        return None
+    
     if token.lower().startswith("bearer "):
         token = token[7:].strip()
     
@@ -373,7 +401,12 @@ def extract_today():
     print(f"📊 VTURB EXTRACTOR - HOJE")
     print(f"📅 Data: {target_date.strftime('%d/%m/%Y')}")
     print(f"💾 Destino: vturb_today")
+    print(f"🔑 Token: {'✅ Definido' if VTURB_TOKEN else '❌ Não definido'}")
     print("=" * 50)
+    
+    if not VTURB_TOKEN:
+        print("\n❌ Execute: python3 auto_extract.py vturb")
+        return
     
     stats_list = []
     
@@ -399,7 +432,12 @@ def extract_yesterday():
     print(f"📊 VTURB EXTRACTOR - ONTEM")
     print(f"📅 Data: {target_date.strftime('%d/%m/%Y')}")
     print(f"💾 Destino: vturb_history")
+    print(f"🔑 Token: {'✅ Definido' if VTURB_TOKEN else '❌ Não definido'}")
     print("=" * 50)
+    
+    if not VTURB_TOKEN:
+        print("\n❌ Execute: python3 auto_extract.py vturb")
+        return
     
     stats_list = []
     
