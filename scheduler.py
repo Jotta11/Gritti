@@ -11,6 +11,7 @@ import schedule
 import time
 import subprocess
 import os
+import sys
 from datetime import datetime
 import logging
 
@@ -32,6 +33,7 @@ RUN_STARTUP_TODAY = os.getenv("SCHEDULER_RUN_STARTUP_TODAY", "true").lower() in 
 RUN_STARTUP_YESTERDAY = os.getenv("SCHEDULER_RUN_STARTUP_YESTERDAY", "true").lower() in ("1", "true", "yes", "on")
 ACTIVE_START_HOUR = int(os.getenv("SCHEDULER_ACTIVE_START_HOUR", "8"))
 ACTIVE_END_HOUR = int(os.getenv("SCHEDULER_ACTIVE_END_HOUR", "22"))
+TEST_INCLUDE_YESTERDAY = os.getenv("SCHEDULER_TEST_INCLUDE_YESTERDAY", "false").lower() in ("1", "true", "yes", "on")
 
 
 def extract_summary_blocks(output: str) -> list:
@@ -240,4 +242,19 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    mode = sys.argv[1].lower() if len(sys.argv) > 1 else "run"
+
+    if mode == "test":
+        print("=" * 60)
+        print("🧪 SCHEDULER TEST MODE")
+        print("=" * 60)
+        ok_today = run_today_cycle(reason="Teste único")
+        ok_yesterday = True
+        if TEST_INCLUDE_YESTERDAY:
+            ok_yesterday = run_yesterday_backfill()
+        sys.exit(0 if (ok_today and ok_yesterday) else 1)
+    elif mode == "run":
+        main()
+    else:
+        print("Uso: python3 scheduler.py [run|test]")
+        sys.exit(1)

@@ -97,6 +97,7 @@ VTURB_TARGET_ORG_EMAIL = config_value("VTURB_TARGET_ORG_EMAIL", "suportebumbasho
 VTURB_TOKEN = config_value("VTURB_TOKEN", "")
 VTURB_HEALTHCHECK_PLAYER_ID = config_value("VTURB_HEALTHCHECK_PLAYER_ID", "693a3e45e891e679e7727765")
 UTMIFY_SCRIPT = os.path.join(SCRIPT_DIR, "utmify_extract.py")
+UTMIFY_DASHBOARD_SCRIPT = os.path.join(SCRIPT_DIR, "dashboard_extract.py")
 VTURB_SCRIPT = os.path.join(SCRIPT_DIR, "vturb_extract.py")
 
 # Timeouts aumentados
@@ -737,6 +738,25 @@ def extract_summary_block(output: str) -> str:
     return block
 
 
+def extract_dashboard_summary_block(output: str) -> str:
+    """Extrai o resumo textual do dashboard (fontes + métricas)."""
+    if not output:
+        return ""
+
+    lines = output.splitlines()
+    summary_lines = []
+
+    for line in lines:
+        striped = line.strip()
+        if striped.startswith("📊 Fonte:") or striped.startswith("Pedidos:"):
+            summary_lines.append(striped)
+
+    if not summary_lines:
+        return ""
+
+    return "\n".join(summary_lines)
+
+
 # =====================================================
 # MAIN
 # =====================================================
@@ -749,6 +769,8 @@ def extract_hoje():
     
     utmify_summary = ""
     utmify_ok = False
+    dashboard_summary = ""
+    dashboard_ok = False
 
     with sync_playwright() as playwright:
         
@@ -759,6 +781,12 @@ def extract_hoje():
         if ensure_utmify_token(playwright):
             utmify_ok, utmify_stdout, _ = run_extraction(UTMIFY_SCRIPT, "hoje", return_output=True)
             utmify_summary = extract_summary_block(utmify_stdout)
+
+            print("\n" + "=" * 60)
+            print("📊 DASHBOARD UTMIFY")
+            print("=" * 60)
+            dashboard_ok, dashboard_stdout, _ = run_extraction(UTMIFY_DASHBOARD_SCRIPT, "hoje", return_output=True)
+            dashboard_summary = extract_dashboard_summary_block(dashboard_stdout)
         else:
             logger.error("❌ Falha ao capturar token Utmify")
         
@@ -782,6 +810,15 @@ def extract_hoje():
         print(utmify_summary)
     else:
         print("⚠️ Resumo de métricas da UTMify não encontrado na saída.")
+
+    print("\n" + "=" * 60)
+    print("📋 RESUMO DASHBOARD EXTRAÍDO")
+    print("=" * 60)
+    print(f"📤 Extração DASHBOARD: {'✅ Sim' if dashboard_ok else '❌ Não'}")
+    if dashboard_summary:
+        print(dashboard_summary)
+    else:
+        print("⚠️ Resumo de métricas do DASHBOARD não encontrado na saída.")
 
 
 def extract_utmify_hoje():
