@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Architecture — Automated Marketing Data Pipeline</title>
+<style>
+  :root {
+    --bg: #0b101c;
+    --panel: #111a2c;
+    --panel-2: #0e1626;
+    --line: rgba(148, 197, 255, 0.16);
+    --line-strong: rgba(148, 197, 255, 0.32);
+    --ink: #eef4ff;
+    --ink-dim: #9fb0cc;
+    --ink-faint: #64748f;
+    --accent: #6fd6c3;
+    --accent-deep: #2ea08c;
+    --amber: #e8b45a;
+    --mono: "SF Mono", Menlo, monospace;
+    --sans: "Avenir Next", Avenir, Futura, "Helvetica Neue", sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { width: 1600px; height: 1200px; background: var(--bg); font-family: var(--sans); color: var(--ink); overflow: hidden; }
+
+  .canvas {
+    position: relative; width: 1600px; height: 1200px; padding: 72px 84px 60px;
+    background:
+      radial-gradient(1100px 620px at 78% -10%, rgba(47, 107, 186, 0.20), transparent 62%),
+      radial-gradient(900px 540px at 6% 112%, rgba(46, 160, 140, 0.13), transparent 60%),
+      var(--bg);
+  }
+  .canvas::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background-image:
+      linear-gradient(rgba(148, 197, 255, 0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(148, 197, 255, 0.045) 1px, transparent 1px);
+    background-size: 44px 44px;
+    mask-image: radial-gradient(1200px 900px at 50% 42%, #000 40%, transparent 100%);
+  }
+
+  /* ---------- header ---------- */
+  .eyebrow {
+    font-family: var(--mono); font-size: 13px; letter-spacing: 0.32em; color: var(--accent);
+    text-transform: uppercase; margin-bottom: 18px;
+  }
+  .eyebrow::before { content: "//"; color: var(--ink-faint); margin-right: 12px; letter-spacing: 0; }
+  h1 { font-size: 46px; font-weight: 600; letter-spacing: -0.01em; }
+  .subtitle { margin-top: 12px; font-size: 19px; font-weight: 400; color: var(--ink-dim); max-width: 900px; line-height: 1.5; }
+  .subtitle strong { color: var(--ink); font-weight: 500; }
+
+  /* ---------- flow ---------- */
+  .flow { position: relative; display: flex; align-items: stretch; gap: 0; margin-top: 108px; height: 520px; }
+  .col { display: flex; flex-direction: column; justify-content: center; gap: 20px; }
+  .col-sources { width: 280px; }
+  .col-engine  { width: 356px; }
+  .col-db      { width: 300px; }
+  .col-bi      { width: 260px; }
+
+  .col-label {
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.24em; text-transform: uppercase;
+    color: var(--ink-faint); margin-bottom: 2px;
+  }
+  .col-label b { color: var(--accent); font-weight: 400; margin-right: 10px; }
+
+  .node {
+    background: linear-gradient(180deg, var(--panel), var(--panel-2));
+    border: 1px solid var(--line); border-radius: 14px; padding: 22px 24px;
+    box-shadow: 0 18px 44px rgba(2, 8, 20, 0.5);
+    position: relative;
+  }
+  .node::after {
+    content: ""; position: absolute; left: 0; top: 14px; bottom: 14px; width: 3px; border-radius: 3px;
+    background: var(--node-edge, var(--accent-deep));
+  }
+  .node h3 { font-size: 20px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+  .node .tag {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; color: var(--accent);
+    border: 1px solid rgba(111, 214, 195, 0.35); border-radius: 99px; padding: 3px 10px; margin-left: auto;
+  }
+  .node p { margin-top: 8px; font-size: 15px; line-height: 1.5; color: var(--ink-dim); }
+  .node ul { margin-top: 12px; list-style: none; }
+  .node li {
+    font-size: 15px; color: var(--ink-dim); line-height: 1.85; padding-left: 20px; position: relative;
+  }
+  .node li::before { content: "▸"; position: absolute; left: 0; color: var(--accent); font-size: 12px; top: 2px; }
+  .node li code {
+    font-family: var(--mono); font-size: 13px; color: var(--ink); background: rgba(148, 197, 255, 0.08);
+    border: 1px solid var(--line); border-radius: 5px; padding: 1px 7px;
+  }
+  .node .divider { height: 1px; background: var(--line); margin: 16px 0 14px; }
+  .node .sub {
+    font-family: var(--mono); font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--ink-faint); margin-bottom: 6px;
+  }
+
+  /* ---------- connectors ---------- */
+  .link { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; min-width: 64px; }
+  .link .wire { width: 100%; height: 2px; position: relative;
+    background: repeating-linear-gradient(90deg, var(--line-strong) 0 8px, transparent 8px 15px); }
+  .link .wire::after {
+    content: ""; position: absolute; right: -1px; top: -5px;
+    border-left: 9px solid var(--accent); border-top: 6px solid transparent; border-bottom: 6px solid transparent;
+  }
+  .link .lbl {
+    position: absolute; top: calc(50% - 42px); font-family: var(--mono); font-size: 11.5px;
+    color: var(--accent); letter-spacing: 0.06em; white-space: nowrap; background: #0e1626;
+    padding: 4px 10px; border: 1px solid var(--line); border-radius: 6px; z-index: 5;
+  }
+
+  /* ---------- scheduler ---------- */
+  .scheduler {
+    margin-top: 56px; border: 1px dashed rgba(232, 180, 90, 0.45); border-radius: 14px;
+    background: rgba(232, 180, 90, 0.05); padding: 22px 28px; display: flex; align-items: center; gap: 26px;
+  }
+  .scheduler .clock { width: 34px; height: 34px; flex: 0 0 auto; }
+  .scheduler .what { flex: 0 0 auto; }
+  .scheduler .what h4 { font-size: 17px; font-weight: 600; color: var(--amber); letter-spacing: 0.02em; }
+  .scheduler .what p { font-size: 14px; color: var(--ink-dim); margin-top: 3px; }
+  .scheduler .times { display: flex; gap: 14px; margin-left: auto; align-items: center; }
+  .scheduler .t {
+    font-family: var(--mono); font-size: 15px; color: var(--amber); border: 1px solid rgba(232, 180, 90, 0.4);
+    background: rgba(232, 180, 90, 0.08); border-radius: 8px; padding: 8px 16px;
+  }
+  .scheduler .plus { font-size: 13px; color: var(--ink-dim); font-family: var(--mono); }
+
+  /* ---------- footer ---------- */
+  .footer { margin-top: 56px; display: flex; align-items: center; gap: 12px; }
+  .chip {
+    font-family: var(--mono); font-size: 13px; color: var(--ink-dim); border: 1px solid var(--line);
+    border-radius: 99px; padding: 7px 16px; background: rgba(17, 26, 44, 0.7);
+  }
+  .footer .meta { margin-left: auto; font-family: var(--mono); font-size: 12.5px; color: var(--ink-faint); letter-spacing: 0.04em; }
+</style>
+</head>
+<body>
+<div class="canvas">
+  <div class="eyebrow">System Architecture</div>
+  <h1>Automated Marketing Data Pipeline</h1>
+  <p class="subtitle">Unattended extraction from <strong>Utmify</strong> (ad attribution) and <strong>VTurb</strong> (VSL video player) into <strong>PostgreSQL</strong>, feeding live Looker Studio dashboards — zero manual token handling.</p>
+
+  <div class="flow">
+    <div class="col col-sources">
+      <div class="col-label"><b>01</b>Data Sources</div>
+      <div class="node" style="--node-edge:#4f8fd9">
+        <h3>Utmify <span class="tag">REST API</span></h3>
+        <p>Ad attribution — campaigns, ad sets, creatives, spend &amp; revenue.</p>
+      </div>
+      <div class="node" style="--node-edge:#4f8fd9">
+        <h3>VTurb <span class="tag">REST API</span></h3>
+        <p>VSL video player — plays, engagement &amp; retention metrics.</p>
+      </div>
+    </div>
+
+    <div class="link"><span class="lbl">login + JWT</span><div class="wire"></div></div>
+
+    <div class="col col-engine">
+      <div class="col-label"><b>02</b>Extraction Engine</div>
+      <div class="node" style="--node-edge:var(--accent)">
+        <div class="sub">Playwright · headless Chromium</div>
+        <h3>Automated Auth</h3>
+        <ul>
+          <li>Scripted login, incl. 2FA <code>TOTP</code></li>
+          <li>JWT capture &amp; auto-refresh on expiry</li>
+        </ul>
+        <div class="divider"></div>
+        <div class="sub">Python · requests + psycopg2</div>
+        <h3>Extractors</h3>
+        <ul>
+          <li>Today / yesterday / backfill any date</li>
+          <li>Normalization &amp; incremental loads</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="link"><span class="lbl">daily upserts</span><div class="wire"></div></div>
+
+    <div class="col col-db">
+      <div class="col-label"><b>03</b>Storage &amp; Modeling</div>
+      <div class="node" style="--node-edge:#7f9cf5">
+        <h3>PostgreSQL</h3>
+        <p>Raw tables + SQL views ready for BI:</p>
+        <ul>
+          <li><code>vw_campaigns</code></li>
+          <li><code>vw_ads_with_campaign</code></li>
+          <li><code>vw_vturb</code></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="link"><span class="lbl">live views</span><div class="wire"></div></div>
+
+    <div class="col col-bi">
+      <div class="col-label"><b>04</b>Visualization</div>
+      <div class="node" style="--node-edge:var(--amber)">
+        <h3>Looker Studio</h3>
+        <p>Live dashboards — ROAS, spend, funnel &amp; video retention, always current.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="scheduler">
+    <svg class="clock" viewBox="0 0 34 34" fill="none">
+      <circle cx="17" cy="17" r="14" stroke="#e8b45a" stroke-width="2"/>
+      <path d="M17 9 v8 l6 4" stroke="#e8b45a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <div class="what">
+      <h4>Scheduler — unattended runs, 4× daily</h4>
+      <p>Triggers the full pipeline end-to-end; no human in the loop.</p>
+    </div>
+    <div class="times">
+      <span class="t">10:00</span><span class="t">14:00</span><span class="t">18:00</span><span class="t">22:00</span>
+      <span class="plus">+ on-demand backfill</span>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span class="chip">Python</span><span class="chip">Playwright</span><span class="chip">PostgreSQL</span>
+    <span class="chip">REST APIs</span><span class="chip">JWT</span><span class="chip">Looker Studio</span>
+    <span class="meta">10 Python modules · scheduler.py · auto_extract.py</span>
+  </div>
+</div>
+</body>
+</html>

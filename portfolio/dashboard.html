@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Funnel Performance — sample data recreation</title>
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f9f9f7;
+    --surface-1: #fcfcfb;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted: #898781;
+    --grid: #e1e0d9;
+    --baseline: #c3c2b7;
+    --border: rgba(11,11,11,0.10);
+    --series-1: #2a78d6;  /* revenue */
+    --series-2: #008300;  /* spend */
+    --delta-good: #006300;
+    --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { width: 1600px; height: 1200px; background: var(--page); font-family: var(--sans); color: var(--text-primary); overflow: hidden; }
+  .wrap { padding: 36px 40px; display: flex; flex-direction: column; gap: 20px; height: 1200px; }
+
+  /* header */
+  .topbar { display: flex; align-items: center; gap: 16px; }
+  .logo { width: 40px; height: 40px; border-radius: 10px; background: linear-gradient(135deg, #2a78d6, #1c5cab); display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 18px; }
+  .titles h1 { font-size: 22px; font-weight: 650; letter-spacing: -0.01em; }
+  .titles p { font-size: 13.5px; color: var(--text-muted); margin-top: 2px; }
+  .topbar .right { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+  .chip { font-size: 13px; color: var(--text-secondary); border: 1px solid var(--border); background: var(--surface-1); border-radius: 8px; padding: 8px 14px; }
+  .chip b { font-weight: 600; color: var(--text-primary); }
+  .badge { font-size: 12px; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; color: #7a4d00; background: #fdf3df; border: 1px solid #ecd9ae; border-radius: 8px; padding: 8px 14px; }
+
+  /* cards */
+  .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px; box-shadow: 0 1px 2px rgba(11,11,11,0.04); }
+  .card h2 { font-size: 14.5px; font-weight: 600; color: var(--text-primary); }
+  .card .sub { font-size: 12.5px; color: var(--text-muted); margin-top: 2px; }
+  .card-head { display: flex; align-items: flex-start; margin-bottom: 14px; }
+  .legend { margin-left: auto; display: flex; gap: 16px; font-size: 12.5px; color: var(--text-secondary); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; }
+
+  /* KPI row */
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+  .kpi { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; padding: 18px 22px; }
+  .kpi .label { font-size: 13px; color: var(--text-muted); }
+  .kpi .value { font-size: 34px; font-weight: 650; letter-spacing: -0.01em; margin-top: 6px; }
+  .kpi .delta { margin-top: 8px; font-size: 13px; color: var(--text-secondary); }
+  .kpi .delta b { color: var(--delta-good); font-weight: 650; }
+
+  /* grid rows */
+  .row2 { display: grid; grid-template-columns: 1fr 500px; gap: 20px; }
+  .row3 { display: grid; grid-template-columns: 620px 1fr; gap: 20px; }
+
+  svg text { font-family: var(--sans); }
+  .tick { font-size: 12px; fill: var(--text-muted); }
+  .dlabel { font-size: 12.5px; font-weight: 600; fill: var(--text-secondary); }
+  .vlabel { font-size: 12.5px; fill: var(--text-secondary); font-variant-numeric: tabular-nums; }
+  .cat { font-size: 13px; fill: var(--text-secondary); }
+  .anno { font-size: 12px; fill: var(--text-muted); }
+
+  /* table */
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th { text-align: left; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); padding: 8px 10px; border-bottom: 1px solid var(--grid); }
+  td { padding: 15px 10px; border-bottom: 1px solid var(--grid); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+  tr:last-child td { border-bottom: none; }
+  td.name { color: var(--text-primary); font-weight: 550; font-variant-numeric: normal; }
+  td.num, th.num { text-align: right; }
+  .roasbar { display: inline-block; height: 6px; border-radius: 3px; background: var(--series-1); vertical-align: middle; margin-right: 10px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <div class="logo">G</div>
+    <div class="titles">
+      <h1>Funnel Performance — Utmify + VTurb</h1>
+      <p>Auto-updated from PostgreSQL · extraction pipeline runs 4× daily</p>
+    </div>
+    <div class="right">
+      <span class="badge">Sample data · dashboard recreation</span>
+      <span class="chip">Date range: <b>Last 14 days</b></span>
+    </div>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="label">Ad Spend</div><div class="value">R$ 48.2K</div><div class="delta"><b>▲ 8.4%</b> vs. previous 14 days</div></div>
+    <div class="kpi"><div class="label">Revenue</div><div class="value">R$ 156.3K</div><div class="delta"><b>▲ 21.7%</b> vs. previous 14 days</div></div>
+    <div class="kpi"><div class="label">ROAS</div><div class="value">3.24</div><div class="delta"><b>▲ 0.35</b> vs. previous 14 days</div></div>
+    <div class="kpi"><div class="label">Conversions</div><div class="value">1,847</div><div class="delta"><b>▲ 12.9%</b> vs. previous 14 days</div></div>
+  </div>
+
+  <div class="row2">
+    <div class="card">
+      <div class="card-head">
+        <div><h2>Revenue vs. Spend — daily (R$ thousands)</h2><div class="sub">Utmify attribution · vw_campaigns</div></div>
+        <div class="legend">
+          <span><i class="dot" style="background:var(--series-1)"></i>Revenue</span>
+          <span><i class="dot" style="background:var(--series-2)"></i>Spend</span>
+        </div>
+      </div>
+      <svg id="linechart" width="950" height="330"></svg>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <div><h2>Spend by campaign (R$ thousands)</h2><div class="sub">Last 14 days · vw_ads_with_campaign</div></div>
+      </div>
+      <svg id="barchart" width="456" height="330"></svg>
+    </div>
+  </div>
+
+  <div class="row3">
+    <div class="card">
+      <div class="card-head">
+        <div><h2>VSL retention — % of viewers by video progress</h2><div class="sub">VTurb · vw_vturb · main VSL player</div></div>
+      </div>
+      <svg id="retention" width="576" height="300"></svg>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <div><h2>Top creatives by ROAS</h2><div class="sub">Last 14 days · min. spend R$ 3K</div></div>
+      </div>
+      <table>
+        <thead><tr><th>Ad creative</th><th class="num">Spend</th><th>ROAS</th><th class="num">CPA</th><th class="num">Conversions</th></tr></thead>
+        <tbody id="adrows"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div style="margin-top:auto; display:flex; align-items:center; font-size:12.5px; color:var(--text-muted); padding-top:6px;">
+    <span>Data pipeline: Python · Playwright · PostgreSQL — refreshed automatically at 10:00 · 14:00 · 18:00 · 22:00</span>
+    <span style="margin-left:auto;">Recreation with fictitious data for portfolio purposes</span>
+  </div>
+
+</div>
+
+<script>
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const S1 = css('--series-1'), S2 = css('--series-2'), GRID = css('--grid'), BASE = css('--baseline');
+
+function el(name, attrs, text) {
+  const n = document.createElementNS('http://www.w3.org/2000/svg', name);
+  for (const k in attrs) n.setAttribute(k, attrs[k]);
+  if (text !== undefined) n.textContent = text;
+  return n;
+}
+
+/* ---------- line chart: revenue vs spend ---------- */
+(function () {
+  const svg = document.getElementById('linechart');
+  const revenue = [9.4, 10.2, 9.8, 11.9, 10.4, 11.6, 13.1, 11.2, 9.9, 12.4, 12.1, 11.0, 11.6, 11.7];
+  const spend   = [3.1, 3.4, 3.2, 3.6, 3.3, 3.5, 3.8, 3.4, 3.2, 3.7, 3.6, 3.4, 3.5, 3.5];
+  const days = ['Jun 02','Jun 03','Jun 04','Jun 05','Jun 06','Jun 07','Jun 08','Jun 09','Jun 10','Jun 11','Jun 12','Jun 13','Jun 14','Jun 15'];
+  const M = { l: 36, r: 150, t: 14, b: 34 };
+  const W = 950 - M.l - M.r, H = 330 - M.t - M.b, yMax = 15;
+  const x = i => M.l + i * (W / (revenue.length - 1));
+  const y = v => M.t + H - (v / yMax) * H;
+
+  [0, 5, 10, 15].forEach(v => {
+    svg.appendChild(el('line', { x1: M.l, x2: M.l + W, y1: y(v), y2: y(v), stroke: v === 0 ? BASE : GRID, 'stroke-width': 1 }));
+    svg.appendChild(el('text', { x: M.l - 10, y: y(v) + 4, 'text-anchor': 'end', class: 'tick' }, v));
+  });
+  days.forEach((d, i) => {
+    if (i % 2 === 0) svg.appendChild(el('text', { x: x(i), y: M.t + H + 20, 'text-anchor': 'middle', class: 'tick' }, d));
+  });
+
+  [[revenue, S1, 'Revenue'], [spend, S2, 'Spend']].forEach(([data, color, label]) => {
+    const pts = data.map((v, i) => `${x(i)},${y(v)}`).join(' ');
+    svg.appendChild(el('polyline', { points: pts, fill: 'none', stroke: color, 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
+    const li = data.length - 1;
+    svg.appendChild(el('circle', { cx: x(li), cy: y(data[li]), r: 4.5, fill: color, stroke: '#fcfcfb', 'stroke-width': 2 }));
+    svg.appendChild(el('circle', { cx: x(li) + 14, cy: y(data[li]) - 1, r: 4, fill: color }));
+    svg.appendChild(el('text', { x: x(li) + 23, y: y(data[li]) + 3, class: 'dlabel' }, `${label} ${data[li].toFixed(1)}`));
+  });
+})();
+
+/* ---------- horizontal bars: spend by campaign ---------- */
+(function () {
+  const svg = document.getElementById('barchart');
+  const rows = [
+    ['VSL-A · Cold traffic', 18.6],
+    ['VSL-A · Remarketing', 9.8],
+    ['VSL-B · Broad', 8.4],
+    ['Advantage+ · Scaling', 7.1],
+    ['Search · Brand', 4.3],
+  ];
+  const M = { l: 170, r: 56, t: 16, b: 10 };
+  const W = 456 - M.l - M.r, max = 20, barH = 20, gap = 38;
+  const bw = v => (v / max) * W;
+
+  rows.forEach(([name, v], i) => {
+    const yTop = M.t + i * (barH + gap) + 12;
+    svg.appendChild(el('text', { x: M.l - 12, y: yTop + barH / 2 + 4, 'text-anchor': 'end', class: 'cat' }, name));
+    const w = bw(v), r = 4;
+    const d = `M ${M.l} ${yTop} L ${M.l + w - r} ${yTop} Q ${M.l + w} ${yTop} ${M.l + w} ${yTop + r}
+               L ${M.l + w} ${yTop + barH - r} Q ${M.l + w} ${yTop + barH} ${M.l + w - r} ${yTop + barH}
+               L ${M.l} ${yTop + barH} Z`;
+    svg.appendChild(el('path', { d, fill: S1 }));
+    svg.appendChild(el('text', { x: M.l + w + 10, y: yTop + barH / 2 + 4, class: 'vlabel' }, v.toFixed(1)));
+  });
+  svg.appendChild(el('line', { x1: M.l, x2: M.l, y1: M.t + 6, y2: M.t + 5 * (barH + gap), stroke: BASE, 'stroke-width': 1 }));
+})();
+
+/* ---------- retention curve ---------- */
+(function () {
+  const svg = document.getElementById('retention');
+  const data = [100, 82, 71, 64, 60, 57, 55, 53, 51, 48, 45, 41, 37, 33];
+  const M = { l: 44, r: 20, t: 14, b: 32 };
+  const W = 576 - M.l - M.r, H = 300 - M.t - M.b;
+  const x = i => M.l + i * (W / (data.length - 1));
+  const y = v => M.t + H - (v / 100) * H;
+
+  [0, 25, 50, 75, 100].forEach(v => {
+    svg.appendChild(el('line', { x1: M.l, x2: M.l + W, y1: y(v), y2: y(v), stroke: v === 0 ? BASE : GRID, 'stroke-width': 1 }));
+    svg.appendChild(el('text', { x: M.l - 10, y: y(v) + 4, 'text-anchor': 'end', class: 'tick' }, v + '%'));
+  });
+  [0, 25, 50, 75, 100].forEach(p => {
+    svg.appendChild(el('text', { x: M.l + (p / 100) * W, y: M.t + H + 20, 'text-anchor': 'middle', class: 'tick' }, p + '%'));
+  });
+
+  const area = data.map((v, i) => `${x(i)},${y(v)}`).join(' ') + ` ${x(data.length - 1)},${y(0)} ${x(0)},${y(0)}`;
+  svg.appendChild(el('polygon', { points: area, fill: S1, opacity: 0.10 }));
+  svg.appendChild(el('polyline', { points: data.map((v, i) => `${x(i)},${y(v)}`).join(' '), fill: 'none', stroke: S1, 'stroke-width': 2, 'stroke-linejoin': 'round' }));
+
+  const pi = 8; // pitch marker ≈ 62% progress
+  const px = M.l + 0.62 * W, pv = 50;
+  svg.appendChild(el('line', { x1: px, x2: px, y1: y(pv) - 6, y2: y(0), stroke: BASE, 'stroke-width': 1, 'stroke-dasharray': '3 4' }));
+  svg.appendChild(el('circle', { cx: px, cy: y(pv), r: 4.5, fill: S1, stroke: '#fcfcfb', 'stroke-width': 2 }));
+  svg.appendChild(el('text', { x: px + 8, y: y(pv) - 12, class: 'anno' }, 'pitch / CTA · 50% still watching'));
+})();
+
+/* ---------- creatives table ---------- */
+(function () {
+  const rows = [
+    ['AD-14 · Hook "3 sinais"', '6.4K', 4.12, '21.30', 302],
+    ['AD-07 · Depoimento', '5.8K', 3.87, '23.10', 251],
+    ['AD-22 · UGC v2', '5.1K', 3.41, '25.40', 201],
+    ['AD-03 · Motion', '4.6K', 2.96, '28.70', 160],
+    ['AD-11 · Estático', '3.9K', 2.63, '31.20', 125],
+  ];
+  const tbody = document.getElementById('adrows');
+  rows.forEach(([name, spend, roas, cpa, conv]) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td class="name">${name}</td><td class="num">R$ ${spend}</td>` +
+      `<td><span class="roasbar" style="width:${Math.round(roas * 22)}px"></span>${roas.toFixed(2)}</td>` +
+      `<td class="num">R$ ${cpa}</td><td class="num">${conv}</td>`;
+    tbody.appendChild(tr);
+  });
+})();
+</script>
+</body>
+</html>

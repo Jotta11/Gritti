@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Programmatic Media Report — sample data recreation</title>
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f9f9f7;
+    --surface-1: #fcfcfb;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted: #898781;
+    --grid: #e1e0d9;
+    --baseline: #c3c2b7;
+    --border: rgba(11,11,11,0.10);
+    --series-1: #2a78d6;  /* clicks (Google Ads) */
+    --series-2: #008300;  /* sessions (GA4) */
+    --delta-good: #006300;
+    --accent: #1a73e8;
+    --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { width: 1600px; height: 1200px; background: var(--page); font-family: var(--sans); color: var(--text-primary); overflow: hidden; display: flex; }
+
+  /* ---------- sidebar ---------- */
+  .sidebar { width: 252px; height: 1200px; background: var(--surface-1); border-right: 1px solid var(--grid); padding: 28px 18px; display: flex; flex-direction: column; }
+  .brand { display: flex; align-items: center; gap: 12px; padding: 0 8px 22px; border-bottom: 1px solid var(--grid); }
+  .brand .mark { width: 38px; height: 38px; border-radius: 9px; background: conic-gradient(from 40deg, #1a73e8, #188038, #f9ab00, #ea4335, #1a73e8); position: relative; }
+  .brand .mark::after { content: "P"; position: absolute; inset: 3px; background: #fff; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; color: #1a73e8; }
+  .brand h1 { font-size: 15px; font-weight: 650; line-height: 1.25; }
+  .brand p { font-size: 11.5px; color: var(--text-muted); margin-top: 1px; }
+  .nav { margin-top: 18px; display: flex; flex-direction: column; gap: 4px; }
+  .nav .label { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); padding: 8px 10px 6px; }
+  .nav a { font-size: 13.5px; color: var(--text-secondary); padding: 9px 12px; border-radius: 8px; display: flex; align-items: center; gap: 10px; text-decoration: none; }
+  .nav a .pg { font-size: 10.5px; color: var(--text-muted); font-variant-numeric: tabular-nums; width: 20px; }
+  .nav a.active { background: #e8f0fd; color: #174ea6; font-weight: 600; }
+  .nav a.active .pg { color: #174ea6; }
+  .sources { margin-top: auto; border-top: 1px solid var(--grid); padding: 16px 10px 0; }
+  .sources h4 { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 10px; }
+  .sources div { font-size: 12.5px; color: var(--text-secondary); line-height: 2; display: flex; align-items: center; gap: 8px; }
+  .sources i { width: 8px; height: 8px; border-radius: 2px; flex: 0 0 auto; }
+
+  /* ---------- main ---------- */
+  .main { flex: 1; padding: 30px 34px; display: flex; flex-direction: column; gap: 18px; }
+  .topbar { display: flex; align-items: center; gap: 12px; }
+  .topbar h2 { font-size: 21px; font-weight: 650; letter-spacing: -0.01em; }
+  .topbar .crumb { font-size: 13px; color: var(--text-muted); margin-top: 3px; }
+  .topbar .right { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+  .chip { font-size: 13px; color: var(--text-secondary); border: 1px solid var(--border); background: var(--surface-1); border-radius: 8px; padding: 8px 14px; }
+  .chip b { font-weight: 600; color: var(--text-primary); }
+  .badge { font-size: 12px; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; color: #7a4d00; background: #fdf3df; border: 1px solid #ecd9ae; border-radius: 8px; padding: 8px 14px; }
+
+  .card { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; padding: 18px 22px; box-shadow: 0 1px 2px rgba(11,11,11,0.04); }
+  .card h3 { font-size: 14.5px; font-weight: 600; }
+  .card .sub { font-size: 12.5px; color: var(--text-muted); margin-top: 2px; }
+  .card-head { display: flex; align-items: flex-start; margin-bottom: 12px; }
+  .legend { margin-left: auto; display: flex; gap: 16px; font-size: 12.5px; color: var(--text-secondary); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; }
+
+  .kpis { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
+  .kpi { background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; padding: 15px 18px; }
+  .kpi .label { font-size: 12.5px; color: var(--text-muted); }
+  .kpi .value { font-size: 27px; font-weight: 650; letter-spacing: -0.01em; margin-top: 5px; }
+  .kpi .delta { margin-top: 6px; font-size: 12.5px; color: var(--text-secondary); }
+  .kpi .delta b { color: var(--delta-good); font-weight: 650; }
+
+  .row2 { display: grid; grid-template-columns: 1fr 450px; gap: 18px; }
+  .row3 { display: grid; grid-template-columns: 520px 1fr; gap: 18px; }
+
+  svg text { font-family: var(--sans); }
+  .tick { font-size: 12px; fill: var(--text-muted); }
+  .dlabel { font-size: 12.5px; font-weight: 600; fill: var(--text-secondary); }
+  .vlabel { font-size: 12.5px; fill: var(--text-secondary); font-variant-numeric: tabular-nums; }
+  .cat { font-size: 12.5px; fill: var(--text-secondary); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; font-size: 11.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); padding: 8px 10px; border-bottom: 1px solid var(--grid); }
+  td { padding: 17px 10px; border-bottom: 1px solid var(--grid); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+  tr:last-child td { border-bottom: none; }
+  td.name { color: var(--text-primary); font-weight: 550; font-variant-numeric: normal; }
+  td.utm { font-family: "SF Mono", Menlo, monospace; font-size: 11.5px; color: var(--text-muted); }
+  td.num, th.num { text-align: right; }
+
+  .foot { margin-top: auto; display: flex; align-items: center; font-size: 12.5px; color: var(--text-muted); padding-top: 4px; }
+</style>
+</head>
+<body>
+
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="mark"></div>
+      <div><h1>Programmatic Media</h1><p>Cross-platform report</p></div>
+    </div>
+    <nav class="nav">
+      <div class="label">Report pages</div>
+      <a href="#"><span class="pg">1</span>Overview</a>
+      <a href="#" class="active"><span class="pg">2</span>Media performance</a>
+      <a href="#"><span class="pg">3</span>Campaigns &amp; UTMs</a>
+      <a href="#"><span class="pg">4</span>Landing pages</a>
+    </nav>
+    <div class="sources">
+      <h4>Connected sources</h4>
+      <div><i style="background:#e8710a"></i>Google Analytics 4</div>
+      <div><i style="background:#1a73e8"></i>Google Ads</div>
+      <div><i style="background:#188038"></i>Google Sheets (UTM join)</div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <h2>Media performance</h2>
+        <div class="crumb">Page 2 of 4 · blended GA4 + Google Ads dataset, matched on UTM keys</div>
+      </div>
+      <div class="right">
+        <span class="badge">Sample data · report recreation</span>
+        <span class="chip">Date range: <b>Last 14 days</b></span>
+      </div>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi"><div class="label">Ad Spend</div><div class="value">R$ 124.6K</div><div class="delta"><b>▲ 6.2%</b> vs. prev. period</div></div>
+      <div class="kpi"><div class="label">Impressions</div><div class="value">4.8M</div><div class="delta"><b>▲ 9.1%</b> vs. prev. period</div></div>
+      <div class="kpi"><div class="label">Clicks</div><div class="value">92.4K</div><div class="delta">CTR <b style="color:var(--text-primary)">1.92%</b></div></div>
+      <div class="kpi"><div class="label">Sessions</div><div class="value">78.3K</div><div class="delta"><b>▲ 7.4%</b> vs. prev. period</div></div>
+      <div class="kpi"><div class="label">Conversions</div><div class="value">2,315</div><div class="delta">CPA <b style="color:var(--text-primary)">R$ 53.82</b></div></div>
+    </div>
+
+    <div class="row2">
+      <div class="card">
+        <div class="card-head">
+          <div><h3>Clicks vs. Sessions — daily (thousands)</h3><div class="sub">Clicks from Google Ads · sessions from GA4 · matched by UTM</div></div>
+          <div class="legend">
+            <span><i class="dot" style="background:var(--series-1)"></i>Clicks</span>
+            <span><i class="dot" style="background:var(--series-2)"></i>Sessions</span>
+          </div>
+        </div>
+        <svg id="linechart" width="770" height="368"></svg>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <div><h3>Conversions by campaign</h3><div class="sub">utm_campaign · last 14 days</div></div>
+        </div>
+        <svg id="barchart" width="406" height="368"></svg>
+      </div>
+    </div>
+
+    <div class="row3">
+      <div class="card">
+        <div class="card-head">
+          <div><h3>Sessions by source / medium (thousands)</h3><div class="sub">GA4 · utm_source / utm_medium</div></div>
+        </div>
+        <svg id="srcbars" width="476" height="316"></svg>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <div><h3>Campaign economics — blended view</h3><div class="sub">Spend from Google Ads · sessions &amp; conversions from GA4 · 96.4% UTM match rate</div></div>
+        </div>
+        <table>
+          <thead><tr><th>Campaign</th><th>Source / Medium</th><th class="num">Spend</th><th class="num">Sessions</th><th class="num">Conv.</th><th class="num">CPA</th></tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="foot">
+      <span>Pipeline: GA4 · Google Ads · GTM → Google Sheets (VLOOKUP / QUERY on UTM keys) → Looker Studio</span>
+      <span style="margin-left:auto;">Recreation with fictitious data for portfolio purposes</span>
+    </div>
+  </main>
+
+<script>
+function el(name, attrs, text) {
+  const n = document.createElementNS('http://www.w3.org/2000/svg', name);
+  for (const k in attrs) n.setAttribute(k, attrs[k]);
+  if (text !== undefined) n.textContent = text;
+  return n;
+}
+const S1 = '#2a78d6', S2 = '#008300', GRID = '#e1e0d9', BASE = '#c3c2b7';
+
+/* ---------- line chart: clicks vs sessions ---------- */
+(function () {
+  const svg = document.getElementById('linechart');
+  const clicks   = [6.2, 6.5, 6.4, 6.8, 6.3, 6.9, 7.1, 6.6, 6.2, 6.7, 6.9, 6.5, 6.6, 6.7];
+  const sessions = [5.3, 5.5, 5.4, 5.8, 5.3, 5.9, 6.1, 5.6, 5.2, 5.7, 5.9, 5.5, 5.5, 5.6];
+  const days = ['Jun 02','Jun 03','Jun 04','Jun 05','Jun 06','Jun 07','Jun 08','Jun 09','Jun 10','Jun 11','Jun 12','Jun 13','Jun 14','Jun 15'];
+  const M = { l: 34, r: 132, t: 14, b: 32 };
+  const W = 770 - M.l - M.r, H = 368 - M.t - M.b, yMax = 8;
+  const x = i => M.l + i * (W / (clicks.length - 1));
+  const y = v => M.t + H - (v / yMax) * H;
+
+  [0, 2, 4, 6, 8].forEach(v => {
+    svg.appendChild(el('line', { x1: M.l, x2: M.l + W, y1: y(v), y2: y(v), stroke: v === 0 ? BASE : GRID, 'stroke-width': 1 }));
+    svg.appendChild(el('text', { x: M.l - 10, y: y(v) + 4, 'text-anchor': 'end', class: 'tick' }, v));
+  });
+  days.forEach((d, i) => {
+    if (i % 2 === 0) svg.appendChild(el('text', { x: x(i), y: M.t + H + 20, 'text-anchor': 'middle', class: 'tick' }, d));
+  });
+
+  [[clicks, S1, 'Clicks'], [sessions, S2, 'Sessions']].forEach(([data, color, label]) => {
+    svg.appendChild(el('polyline', { points: data.map((v, i) => `${x(i)},${y(v)}`).join(' '), fill: 'none', stroke: color, 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
+    const li = data.length - 1;
+    svg.appendChild(el('circle', { cx: x(li), cy: y(data[li]), r: 4.5, fill: color, stroke: '#fcfcfb', 'stroke-width': 2 }));
+    svg.appendChild(el('circle', { cx: x(li) + 14, cy: y(data[li]) - 1, r: 4, fill: color }));
+    svg.appendChild(el('text', { x: x(li) + 23, y: y(data[li]) + 3, class: 'dlabel' }, `${label} ${data[li].toFixed(1)}`));
+  });
+})();
+
+/* ---------- conversions by campaign ---------- */
+(function () {
+  const svg = document.getElementById('barchart');
+  const rows = [
+    ['pmax_leads_br', 780],
+    ['remarketing_display', 612],
+    ['youtube_awareness', 428],
+    ['prospecting_display', 310],
+    ['native_content', 185],
+  ];
+  const M = { l: 158, r: 52, t: 16, b: 10 };
+  const W = 406 - M.l - M.r, max = 800, barH = 20, gap = 48;
+  rows.forEach(([name, v], i) => {
+    const yTop = M.t + i * (barH + gap) + 10;
+    svg.appendChild(el('text', { x: M.l - 12, y: yTop + barH / 2 + 4, 'text-anchor': 'end', class: 'cat' }, name));
+    const w = (v / max) * W, r = 4;
+    const d = `M ${M.l} ${yTop} L ${M.l + w - r} ${yTop} Q ${M.l + w} ${yTop} ${M.l + w} ${yTop + r}
+               L ${M.l + w} ${yTop + barH - r} Q ${M.l + w} ${yTop + barH} ${M.l + w - r} ${yTop + barH}
+               L ${M.l} ${yTop + barH} Z`;
+    svg.appendChild(el('path', { d, fill: S1 }));
+    svg.appendChild(el('text', { x: M.l + w + 9, y: yTop + barH / 2 + 4, class: 'vlabel' }, v));
+  });
+  svg.appendChild(el('line', { x1: M.l, x2: M.l, y1: M.t + 4, y2: M.t + 5 * (barH + gap), stroke: BASE, 'stroke-width': 1 }));
+})();
+
+/* ---------- sessions by source/medium ---------- */
+(function () {
+  const svg = document.getElementById('srcbars');
+  const rows = [
+    ['google / cpc', 31.2],
+    ['google / display', 18.4],
+    ['youtube / cpv', 12.8],
+    ['google / pmax', 9.6],
+    ['(direct) / (none)', 6.3],
+  ];
+  const M = { l: 148, r: 52, t: 12, b: 10 };
+  const W = 476 - M.l - M.r, max = 32, barH = 18, gap = 41;
+  rows.forEach(([name, v], i) => {
+    const yTop = M.t + i * (barH + gap) + 8;
+    svg.appendChild(el('text', { x: M.l - 12, y: yTop + barH / 2 + 4, 'text-anchor': 'end', class: 'cat' }, name));
+    const w = (v / max) * W, r = 4;
+    const d = `M ${M.l} ${yTop} L ${M.l + w - r} ${yTop} Q ${M.l + w} ${yTop} ${M.l + w} ${yTop + r}
+               L ${M.l + w} ${yTop + barH - r} Q ${M.l + w} ${yTop + barH} ${M.l + w - r} ${yTop + barH}
+               L ${M.l} ${yTop + barH} Z`;
+    svg.appendChild(el('path', { d, fill: S1 }));
+    svg.appendChild(el('text', { x: M.l + w + 9, y: yTop + barH / 2 + 4, class: 'vlabel' }, v.toFixed(1)));
+  });
+  svg.appendChild(el('line', { x1: M.l, x2: M.l, y1: M.t + 2, y2: M.t + 5 * (barH + gap), stroke: BASE, 'stroke-width': 1 }));
+})();
+
+/* ---------- blended table ---------- */
+(function () {
+  const rows = [
+    ['pmax_leads_br', 'google / pmax', '38.4K', '9,612', 780, '49.20'],
+    ['remarketing_display', 'google / display', '27.9K', '11,240', 612, '45.60'],
+    ['youtube_awareness', 'youtube / cpv', '24.1K', '12,803', 428, '56.30'],
+    ['prospecting_display', 'google / display', '21.6K', '7,188', 310, '69.70'],
+    ['native_content', 'google / discovery', '12.6K', '5,417', 185, '68.10'],
+  ];
+  const tbody = document.getElementById('rows');
+  rows.forEach(([camp, sm, spend, sess, conv, cpa]) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td class="name">${camp}</td><td class="utm">${sm}</td><td class="num">R$ ${spend}</td>` +
+      `<td class="num">${sess}</td><td class="num">${conv}</td><td class="num">R$ ${cpa}</td>`;
+    tbody.appendChild(tr);
+  });
+})();
+</script>
+</body>
+</html>
